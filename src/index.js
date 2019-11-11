@@ -1,161 +1,80 @@
 const Alexa = require('ask-sdk-core');
-const ddbAdapter = require('ask-sdk-dynamodb-persistence-adapter');
 const provider = require('./provider');
-const utils = require('./utils');
 
-
-const SKILL_TITLE = "Estado Carnet DGT";
+const SKILL_TITLE = "Aprende a Aparcar";
 
 /*
-  LaunchRequest:
-    Si no está en la base de datos (dni & fecha)
-      * Bienvenido a Estado de Carnet DGT, para empezar necesito que me digas tu DNI y tu fecha de nacimiento
-      * Estos datos se almacenan temporalmente, hasta que tu decidas eliminarlos de nuestra base de datos
-      * Para empezar di "registra mis datos" o si quieres saber mas, di "ayuda"
-    Si está en la base de datos
-      * ¡Hola de nuevo! Vamos a ver cual es el estado de tu carnet... <sonidos de computación>
-      * El ultimo estado es: <ultimo estado>
-  HelpIntent:
-    * Esta skill te permite consultar el estado de tu carnet de conducir definitivo
-    * Para consultar el estado de tu carnet, necesitamos tu DNI y tu fecha de nacimiento
-    * Esos datos se guardan en nuestra base de datos para las próximas veces que lo consultes
-    * Y obviamente, se envían a la pagina web de la DGT que es la que nos da el estado de tu carnet
-    * Para eliminar tus datos di "elimina mis datos"
-    * Para registrar tus datos di "registra mis datos"
-    * Una vez estés registrado, puedes consultar el estado de tu carnet diciendo "consulta el estado"
-  RegisterUserDataIntent:
-    Si no está en la base de datos (dni & fecha)
-      * Dime tu DNI incluyendo la letra
-        05975463V
-          Si es valido
-            * Bien, ahora dime tu fecha de nacimiento
-              29 de octubre de 1999
-                * Guardar en base de datos y consultar
-          Si no es valido
-            * Ese dni no parece ser valido, volver a preguntar
-    Si está en la base de datos
-      * Parece que ya estás en nuestra base de datos, si quieres eliminar tus datos di "elimina mis datos"
-  ClearUserDataIntent:
-    Si no está en la base de datos (dni & fecha)
-      * Parece que ya no estás en nuestra base de datos, no tenemos nada que eliminar
-    Si está en la base de datos
-      * Hemos eliminado todos los datos que guardábamos de tí, disfruta de tu carnet <sonido de coche>
-  StatusQueryIntent:
-    Si no está en la base de datos (dni & fecha)
-      * Parece que todavía no estás en nuestra base de datos, dí "registra mis datos" para empezar
-    Si está en la base de datos
-      * El ultimo estado es: <ultimo estado>
+let x = {
+  "name": "parkingType",
+  "value": "linea",
+  "resolutions": {
+    "resolutionsPerAuthority": [
+      {
+        "authority": "amzn1.er-authority.echo-sdk.amzn1.ask.skill.9a8e5e22-0cb6-408b-b564-c1bd3efee111.ParkingType",
+        "status": {
+          "code": "ER_SUCCESS_MATCH"
+        }, 
+        "values": [
+          {
+            "value": {
+              "name": "linea",
+              "id": "linea"
+            }
+          }
+        ]
+      }]
+  }, 
+  "confirmationStatus": "NONE", 
+  "source": "USER"
+};
 */
 
-const RegisterUserDataIntentHandler = {
-  canHandle(handlerInput) {
-    return handlerInput.requestEnvelope.request.type === 'IntentRequest'
-      && handlerInput.requestEnvelope.request.intent.name === 'RegisterUserDataIntent';
-  },
-
-  async handle(handlerInput) {
-    const { attributesManager, requestEnvelope } = handlerInput;
-    const attributes = await attributesManager.getPersistentAttributes() || {};
-    const intent = requestEnvelope.request.intent;
-    
-    if (attributes.dniNumber && attributes.birthDate) {
-      const speechText = 'Parece que ya estás en nuestra base de datos, si quieres eliminar tus datos di "elimina mis datos"';
-      return handlerInput.responseBuilder
-        .speak(speechText)
-        .withSimpleCard(SKILL_TITLE, speechText)
-        .getResponse()
+function getSlotValueId(intentSlot) {
+  const resolutions = intentSlot.resolutions.resolutionsPerAuthority;
+  for (const resolution of resolutions) {
+    if (resolution.status.code === "ER_SUCCESS_MATCH") {
+      const firstIntentSlotValue = resolution.values[0].value;
+      return firstIntentSlotValue.id;
     }
-
-    const dniNumberSlot = intent.slots["dniNumber"].value;
-    const birthDateSlot = intent.slots["birthDate"].value;
-
-    if (!utils.checkDniNumber(dniNumberSlot)) {
-      const speechText = 'El dni que me has dado no parece ser valido. Por favor, dime un DNI valido';
-      return handlerInput.responseBuilder
-        .speak(speechText)
-        .reprompt(speechText)
-        .addElicitSlotDirective('dniNumber')
-        .getResponse();
-    }
-
-    if (!utils.checkBirthDay(birthDateSlot)) {
-      const speechText = 'La fecha de nacimiento que me has dado no parece ser valida. Por favor, dime cuando naciste';
-      return handlerInput.responseBuilder
-        .speak(speechText)
-        .reprompt(speechText)
-        .addElicitSlotDirective('birthDate')
-        .getResponse();
-    }
-
-    attributes.dniNumber = dniNumberSlot.toUpperCase();
-    attributes.birthDate = birthDateSlot;
-
-    attributesManager.setPersistentAttributes(attributes);
-    await attributesManager.savePersistentAttributes();
-
-    const speechText = 'Has registrado tus datos correctamente. Ahora puedes saber el estado de tu carnet diciendo "consulta el estado de mi carnet"'
-    return handlerInput.responseBuilder
-      .speak(speechText)
-      .reprompt(speechText)
-      .withSimpleCard(SKILL_TITLE, speechText)
-      .getResponse();
   }
 }
 
-const StatusQueryIntentHandler = {
-  canHandle(handlerInput) {
-    return handlerInput.requestEnvelope.request.type === 'IntentRequest'
-      && handlerInput.requestEnvelope.request.intent.name === 'StatusQueryIntent';
-  },
-
-  handle(handlerInput) {
-    const speechText = '';
-
-    return handlerInput.responseBuilder
-      .speak(speechText)
-      .reprompt(speechText)
-      .withSimpleCard(SKILL_TITLE, speechText)
-      .getResponse();
-  }
-}
-
-const ClearUserDataIntentHandler = {
+const LearnIntentHandler = {
   canHandle(handlerInput) {
     return handlerInput.requestEnvelope.request.type === "IntentRequest"
-      && handlerInput.requestEnvelope.request.intent.name === "ClearUserDataIntent";
+      && handlerInput.requestEnvelope.request.intent.name === "LearnIntent"
   },
 
   async handle(handlerInput) {
-    const { attributesManager } = handlerInput;
-    const attributes = await attributesManager.getPersistentAttributes() || {};
+    const { requestEnvelope } = handlerInput;
 
-    if (attributes.dniNumber && attributes.birthDate) {
-      attributesManager.setPersistentAttributes({});
-      await attributesManager.savePersistentAttributes();
-
-      const speechText = `
-      Hemos eliminado todos los datos que guardábamos de tí. ¡Disfruta de tu carnet!
-      <audio src="soundbank://soundlibrary/vehicles/cars/cars_07"/>
-      `;
-
+    if (requestEnvelope.request.dialogState !== "COMPLETED") {
       return handlerInput.responseBuilder
-        .speak(speechText)
-        .reprompt(speechText)
-        .withSimpleCard(SKILL_TITLE, speechText)
-        .withShouldEndSession(true)
-        .getResponse();
-    } else {
-      const speechText = `
-      Parece que no estás en nuestra base de datos, no tenemos nada que eliminar
-      `;
-
-      return handlerInput.responseBuilder
-        .speak(speechText)
-        .reprompt(speechText)
-        .withSimpleCard(SKILL_TITLE, speechText)
-        .withShouldEndSession(true)
+        .addDelegateDirective()
         .getResponse();
     }
+
+    const intent = handlerInput.requestEnvelope.request.intent;
+    const parkingTypeSlot = intent.slots["parkingType"];
+    const parkingTypeSlotValue = parkingTypeSlot.value;
+    const parkingTypeSlotValueId = getSlotValueId(parkingTypeSlot);
+
+
+    if (parkingTypeSlotValueId === 'diagonal') {
+
+    } else if (parkingTypeSlotValueId === 'bateria') {
+      
+    } else if (parkingTypeSlotValueId === 'linea') {
+
+    }
+
+    const speechText = JSON.stringify(parkingTypeSlotValueId);
+
+    return handlerInput.responseBuilder
+      .speak(speechText)
+      .reprompt(speechText)
+      .withShouldEndSession(true)
+      .getResponse();
   }
 }
 
@@ -163,11 +82,9 @@ const LaunchRequestHandler = {
   canHandle(handlerInput) {
     return handlerInput.requestEnvelope.request.type === 'LaunchRequest';
   },
-
   handle(handlerInput) {
-    const speechText = `
-    Bienvenido a Estado de Carnet DGT, dime "comprueba el estado de mi carnet" o si prefieres, pídeme ayuda
-    `;
+    const speechText = 'Bienvenido a Aprender a Aparcar, con esta skill podrás aprender a aparcar utilizando referencias usadas por autoescuelas. ' +
+      'Dime "enséñame a aparcar" o "enséñame a aparcar en línea" para empezar.';
 
     return handlerInput.responseBuilder
       .speak(speechText)
@@ -183,16 +100,7 @@ const HelpIntentHandler = {
       && handlerInput.requestEnvelope.request.intent.name === 'AMAZON.HelpIntent';
   },
   handle(handlerInput) {
-    const speechText = `
-    Esta skill te permite consultar el estado de tu carnet de conducir definitivo.
-    Para consultar el estado de tu carnet, necesitamos tu DNI y tu fecha de nacimiento.
-    Esos datos se guardan en nuestra base de datos para las próximas veces que lo consultes.
-    Y obviamente, se envían a la pagina web de la DGT que es la que nos da el estado de tu carnet.
-    Una vez estés registrado, puedes consultar el estado de tu carnet diciendo "consulta el estado".
-    Para registrar tus datos di "registra mis datos".
-    Para eliminar tus datos di "elimina mis datos".
-    Gracias por usar esta skill.
-    `;
+    const speechText = '';
 
     return handlerInput.responseBuilder
       .speak(speechText)
@@ -238,7 +146,7 @@ const ErrorHandler = {
     console.log(`Error handled: ${error.message}`);
     console.log(`Error stack: ${error.stack}`);
 
-    const speechText = 'Ha ocurrido un error, por favor inténtalo otra vez';
+    const speechText = 'Lo siento, no puedo entender ese comando. Dímelo otra vez.';
 
     return handlerInput.responseBuilder
       .speak(speechText)
@@ -247,13 +155,6 @@ const ErrorHandler = {
   },
 };
 
-function getPersistenceAdapter(tableName) {
-  return new ddbAdapter.DynamoDbPersistenceAdapter({
-    tableName: tableName,
-    createTable: true,
-  });
-}
-
 let skill;
 
 exports.handler = async function (event, context) {
@@ -261,17 +162,13 @@ exports.handler = async function (event, context) {
 
   if (!skill) {
     skill = Alexa.SkillBuilders.custom()
-      .withPersistenceAdapter(
-        getPersistenceAdapter('alexa-dgtstatus'))
       .addRequestHandlers(
         LaunchRequestHandler,
-        StatusQueryIntentHandler,
-        ClearUserDataIntentHandler,
-        RegisterUserDataIntentHandler,
-
+        LearnIntentHandler,
         HelpIntentHandler,
         CancelAndStopIntentHandler,
-        SessionEndedRequestHandler)
+        SessionEndedRequestHandler,
+      )
       .addErrorHandlers(ErrorHandler)
       .create();
   }

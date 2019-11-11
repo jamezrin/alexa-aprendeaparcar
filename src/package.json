@@ -15,5 +15,5 @@
     "request-promise": "^4.2.5"
   },
   "devDependencies": {},
-  "description": "Alexa ListaSpam running on AWS Lambda"
+  "description": "alexa-aprendeaparcar running on AWS Lambda"
 }
