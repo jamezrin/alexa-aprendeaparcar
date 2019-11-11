@@ -1,0 +1,6 @@
+package.zip
+
+.idea/
+*.iml
+
+src/node_modules
