@@ -125,14 +125,37 @@ const ClearUserDataIntentHandler = {
       && handlerInput.requestEnvelope.request.intent.name === "ClearUserDataIntent";
   },
 
-  handle(handlerInput) {
-    const speechText = '';
+  async handle(handlerInput) {
+    const { attributesManager } = handlerInput;
+    const attributes = await attributesManager.getPersistentAttributes() || {};
 
-    return handlerInput.responseBuilder
-      .speak(speechText)
-      .reprompt(speechText)
-      .withSimpleCard(SKILL_TITLE, speechText)
-      .getResponse();
+    if (attributes.dniNumber && attributes.birthDate) {
+      attributesManager.setPersistentAttributes({});
+      await attributesManager.savePersistentAttributes();
+
+      const speechText = `
+      Hemos eliminado todos los datos que guardábamos de tí. ¡Disfruta de tu carnet!
+      <audio src="soundbank://soundlibrary/vehicles/cars/cars_07"/>
+      `;
+
+      return handlerInput.responseBuilder
+        .speak(speechText)
+        .reprompt(speechText)
+        .withSimpleCard(SKILL_TITLE, speechText)
+        .withShouldEndSession(true)
+        .getResponse();
+    } else {
+      const speechText = `
+      Parece que no estás en nuestra base de datos, no tenemos nada que eliminar
+      `;
+
+      return handlerInput.responseBuilder
+        .speak(speechText)
+        .reprompt(speechText)
+        .withSimpleCard(SKILL_TITLE, speechText)
+        .withShouldEndSession(true)
+        .getResponse();
+    }
   }
 }
 
@@ -142,7 +165,9 @@ const LaunchRequestHandler = {
   },
 
   handle(handlerInput) {
-    const speechText = 'Bienvenido a Estado de Carnet DGT, dime "comprueba el estado de mi carnet" o si prefieres, pídeme ayuda';
+    const speechText = `
+    Bienvenido a Estado de Carnet DGT, dime "comprueba el estado de mi carnet" o si prefieres, pídeme ayuda
+    `;
 
     return handlerInput.responseBuilder
       .speak(speechText)
