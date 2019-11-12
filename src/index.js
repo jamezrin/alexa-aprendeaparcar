@@ -154,7 +154,7 @@ const LaunchRequestHandler = {
   },
   handle(handlerInput) {
     const speechText = 'Bienvenido a "Aprende a Aparcar", con esta skill podrás aprender a aparcar utilizando referencias usadas por autoescuelas. ' +
-      'Dime "enséñame a aparcar" o "enséñame a aparcar en línea" para empezar.';
+      'Puedes aparcar en linea, en batería o en oblicuo. Dime "enséñame a aparcar" o "enséñame a aparcar en línea" para empezar.';
 
     return handlerInput.responseBuilder
       .speak(speechText)
